@@ -4,36 +4,134 @@ using UnityEngine;
 namespace RoadPlay
 {
     /// <summary>
-    /// A town as a gridSize x gridSize grid of intersections joined by two-way
-    /// roads, plus decorative buildings, trees and ponds (street-carpet look).
-    /// Interior intersections are signalised. Cars navigate the node graph.
-    /// Right-hand traffic. Axes: +Z North, +X East.
+    /// The road graph cars drive on. Two ways to build it:
+    ///   1. procedural town  (a gridSize x gridSize grid + drawn roads/decor), or
+    ///   2. from a <see cref="RoadMap"/> authored over a printed map image
+    ///      (graph only, no art - the printed map supplies the visuals).
+    /// Right-hand traffic. Axes: +Z North, +X East, +Y up.
     /// </summary>
     public class RoadNetwork : MonoBehaviour
     {
-        public int gridSize = 4;       // intersections per side
-        public float cell = 0.28f;     // distance between intersections
+        public int gridSize = 4;
+        public float cell = 0.28f;
+        public float margin = 0.16f;
+
+        public RoadMap map;
+        public float sizeX = 0.3f, sizeZ = 0.3f;
+        public bool drawRoads = true;
+
         public float laneWidth = 0.05f;
-        public float margin = 0.16f;   // grass border around the grid
 
         public float RoadWidth => laneWidth * 2f;
         public float RoadHalf => laneWidth;
         public float LaneOffset => laneWidth * 0.5f;
         public float Span => (gridSize - 1) * cell;
-        public float BoardHalf => Span * 0.5f + margin;
-        public int CenterNode => Idx(gridSize / 2, gridSize / 2);
-        public int SouthEntryNode => Idx(gridSize / 2, 0);
+
+        public float ContentScale => laneWidth / 0.05f;
 
         public List<Vector3> Nodes { get; private set; } = new List<Vector3>();
         public List<int> SignalNodes { get; private set; } = new List<int>();
+        public int CenterNode { get; private set; }
+        public int SouthEntryNode { get; private set; }
+        public float BoardHalf { get; private set; } = 0.5f;
+
         List<int>[] adj;
-        HashSet<int> signalSet = new HashSet<int>();
+        readonly HashSet<int> signalSet = new HashSet<int>();
 
         int Idx(int ix, int iz) => ix * gridSize + iz;
         public List<int> Neighbors(int n) => adj[n];
         public bool IsSignalized(int n) => signalSet.Contains(n);
 
         public void Build()
+        {
+            if (map != null && map.nodes.Count > 0) BuildFromMap();
+            else BuildProcedural();
+        }
+
+        public int NearestNode(Vector3 local)
+        {
+            int best = 0;
+            float bestSq = float.MaxValue;
+            for (int i = 0; i < Nodes.Count; i++)
+            {
+                float dx = Nodes[i].x - local.x, dz = Nodes[i].z - local.z;
+                float sq = dx * dx + dz * dz;
+                if (sq < bestSq) { bestSq = sq; best = i; }
+            }
+            return best;
+        }
+
+        /// Right-offset entry/exit points for travelling a -> b.
+        public void Lane(int a, int b, out Vector3 entry, out Vector3 exit)
+        {
+            Vector3 pa = Nodes[a], pb = Nodes[b];
+            Vector3 dir = (pb - pa).normalized;
+            Vector3 right = new Vector3(dir.z, 0f, -dir.x);
+            entry = pa + right * LaneOffset;
+            exit = pb + right * LaneOffset;
+        }
+
+        void InitAdjacency(int count)
+        {
+            adj = new List<int>[count];
+            for (int k = 0; k < count; k++) adj[k] = new List<int>();
+        }
+
+        void Connect(int a, int b) { adj[a].Add(b); adj[b].Add(a); }
+
+        void BuildFromMap()
+        {
+            Nodes.Clear();
+            for (int i = 0; i < map.nodes.Count; i++)
+                Nodes.Add(map.LocalPosition(i, sizeX, sizeZ));
+
+            InitAdjacency(Nodes.Count);
+            int edges = Mathf.Min(map.edgeA.Count, map.edgeB.Count);
+            for (int i = 0; i < edges; i++)
+            {
+                int a = map.edgeA[i], b = map.edgeB[i];
+                if (a >= 0 && b >= 0 && a < Nodes.Count && b < Nodes.Count && a != b)
+                    Connect(a, b);
+            }
+
+            SignalNodes.Clear();
+            signalSet.Clear();
+            foreach (int s in map.signalNodes)
+                if (s >= 0 && s < Nodes.Count && signalSet.Add(s))
+                    SignalNodes.Add(s);
+
+            CenterNode = Nodes.Count > 0 ? NearestNode(Vector3.zero) : 0;
+            float maxExtent = 0f;
+            int southMost = 0; float minZ = float.MaxValue;
+            for (int i = 0; i < Nodes.Count; i++)
+            {
+                maxExtent = Mathf.Max(maxExtent, Mathf.Max(Mathf.Abs(Nodes[i].x), Mathf.Abs(Nodes[i].z)));
+                if (Nodes[i].z < minZ) { minZ = Nodes[i].z; southMost = i; }
+            }
+            SouthEntryNode = southMost;
+            BoardHalf = maxExtent + 0.05f;
+
+            if (drawRoads) DrawEdges();
+        }
+
+        void DrawEdges()
+        {
+            var road = Prims.MakeMaterial(new Color(0.62f, 0.63f, 0.66f));
+            var drawn = new HashSet<long>();
+            for (int a = 0; a < adj.Length; a++)
+                foreach (int b in adj[a])
+                {
+                    long key = a < b ? ((long)a << 32 | (uint)b) : ((long)b << 32 | (uint)a);
+                    if (!drawn.Add(key)) continue;
+                    Vector3 pa = Nodes[a], pb = Nodes[b], mid = (pa + pb) * 0.5f;
+                    Vector3 dir = (pb - pa).normalized;
+                    var seg = Prims.Box(transform, "road", mid + new Vector3(0, 0.001f, 0),
+                        new Vector3(RoadWidth, 0.003f, Vector3.Distance(pa, pb)), road);
+                    seg.transform.localRotation = Quaternion.LookRotation(dir, Vector3.up);
+                }
+        }
+
+        void BuildProcedural()
         {
             BuildGraph();
             BuildRoads();
@@ -48,8 +146,7 @@ namespace RoadPlay
                 for (int iz = 0; iz < gridSize; iz++)
                     Nodes.Add(new Vector3(ix * cell - half, 0f, iz * cell - half));
 
-            adj = new List<int>[gridSize * gridSize];
-            for (int k = 0; k < adj.Length; k++) adj[k] = new List<int>();
+            InitAdjacency(gridSize * gridSize);
             for (int ix = 0; ix < gridSize; ix++)
                 for (int iz = 0; iz < gridSize; iz++)
                 {
@@ -57,7 +154,6 @@ namespace RoadPlay
                     if (iz < gridSize - 1) Connect(Idx(ix, iz), Idx(ix, iz + 1));
                 }
 
-            // signalise interior intersections (the degree-4 ones)
             SignalNodes.Clear();
             signalSet.Clear();
             for (int ix = 1; ix < gridSize - 1; ix++)
@@ -67,18 +163,10 @@ namespace RoadPlay
                     SignalNodes.Add(n);
                     signalSet.Add(n);
                 }
-        }
 
-        void Connect(int a, int b) { adj[a].Add(b); adj[b].Add(a); }
-
-        /// Right-offset entry/exit points for travelling a -> b.
-        public void Lane(int a, int b, out Vector3 entry, out Vector3 exit)
-        {
-            Vector3 pa = Nodes[a], pb = Nodes[b];
-            Vector3 dir = (pb - pa).normalized;
-            Vector3 right = new Vector3(dir.z, 0f, -dir.x);
-            entry = pa + right * LaneOffset;
-            exit = pb + right * LaneOffset;
+            CenterNode = Idx(gridSize / 2, gridSize / 2);
+            SouthEntryNode = Idx(gridSize / 2, 0);
+            BoardHalf = Span * 0.5f + margin;
         }
 
         void BuildRoads()
@@ -138,7 +226,6 @@ namespace RoadPlay
             Prims.Box(transform, "stopW", c + new Vector3(-off, 0.0025f, 0), new Vector3(barW, t, RoadWidth), white);
         }
 
-        // ---- decorations (purely visual), one feature per block, scales with grid ----
         void BuildDecorations()
         {
             float half = Span * 0.5f;
