@@ -17,7 +17,20 @@ namespace RoadPlay
     /// </summary>
     public class RoadPlayBootstrap : MonoBehaviour
     {
-        [Tooltip("Scales the whole road board. 1 = ~0.76 m across; lower it for a small table.")]
+        [Header("Mode")]
+        [Tooltip("ON: detect a printed map image + ArUco-style markers (the real concept). " +
+                 "OFF: tap a detected plane to place a procedural town.")]
+        public bool useImageTracking;
+        [Tooltip("Image-tracking mode: the authored road graph for your printed map.")]
+        public RoadMap roadMap;
+        [Tooltip("Image-tracking mode: AR Reference Image Library holding the map + marker images.")]
+        public XRReferenceImageLibrary referenceImageLibrary;
+        [Tooltip("Image-tracking mode: rotation of the town relative to the tracked map image. " +
+                 "If the city stands up vertically, try (0,0,0) or (-90,0,0).")]
+        public Vector3 mapPlaneEuler = Vector3.zero;
+
+        [Header("Tap-to-place mode")]
+        [Tooltip("Scales the whole road board. 1 = ~1.2 m across; lower it for a small table.")]
         public float boardScale = 1.0f;
 
         ARRaycastManager raycaster;
@@ -36,6 +49,15 @@ namespace RoadPlay
 
         void Start()
         {
+            if (useImageTracking)
+            {
+                var mt = gameObject.AddComponent<MarkerTracking>();
+                mt.mapPlaneEuler = mapPlaneEuler;
+                mt.Setup(roadMap, referenceImageLibrary);
+                enabled = false;
+                return;
+            }
+
             raycaster = FindAnyObjectByType<ARRaycastManager>();
             planeManager = FindAnyObjectByType<ARPlaneManager>();
             EnsureAudioListener();
@@ -79,7 +101,6 @@ namespace RoadPlay
             }
             else
             {
-                // fallback (e.g. editor / no plane yet): drop the board in front of the camera
                 var cam = Camera.main;
                 if (cam == null) return;
                 Vector3 pos = cam.transform.position + cam.transform.forward * 0.5f + Vector3.down * 0.2f;
@@ -94,7 +115,6 @@ namespace RoadPlay
             placed = true;
 
             var go = new GameObject("RoadPlayRoot");
-            // keep the board level: take position + yaw only
             go.transform.SetPositionAndRotation(pose.position, Quaternion.Euler(0f, pose.rotation.eulerAngles.y, 0f));
             go.transform.localScale = Vector3.one * boardScale;
             root = go.transform;
@@ -125,13 +145,13 @@ namespace RoadPlay
                 var neighbors = net.Neighbors(from);
                 int to = neighbors[Random.Range(0, neighbors.Count)];
 
-                long edgeKey = (long)from << 32 | (uint)to; // directed: avoid two cars on the same lane
+                long edgeKey = (long)from << 32 | (uint)to;
                 if (!usedEdges.Add(edgeKey)) continue;
 
                 var carGo = new GameObject("AICar" + spawned);
                 carGo.transform.SetParent(root, false);
                 var car = carGo.AddComponent<AICar>();
-                float startT = Random.Range(0.2f, 0.8f); // spread along the edge
+                float startT = Random.Range(0.2f, 0.8f);
                 car.Init(net, signals, from, to, colors[spawned % colors.Length], spawned, startT);
                 ais.Add(car);
                 spawned++;
@@ -143,9 +163,8 @@ namespace RoadPlay
             player.Init(net);
 
             rules = go.AddComponent<RuleEngine>();
-            rules.Init(net, signals, player, ais.ToArray(), fx);
+            rules.Init(net, signals, player, ais, fx);
 
-            // stop showing AR planes once the carpet is anchored
             if (planeManager != null)
             {
                 planeManager.enabled = false;
@@ -154,7 +173,6 @@ namespace RoadPlay
             }
         }
 
-        // ---- HUD (display only; all interaction is via touch reads) ----
         void OnGUI()
         {
             float sw = Screen.width, sh = Screen.height;
