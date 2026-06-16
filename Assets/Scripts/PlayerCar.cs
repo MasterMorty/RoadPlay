@@ -18,7 +18,11 @@ namespace RoadPlay
         public float turnRate = 90f; // degrees / second
         public float speed;
 
-        bool armed; // ignore the touch that placed the board until it is released once
+        bool armed;
+
+        bool markerControlled;
+        Vector3 markerTarget;
+        bool hasMarkerTarget;
 
         public Vector3 LocalPos => transform.localPosition;
         public Vector3 Forward => transform.localRotation * Vector3.forward;
@@ -33,11 +37,29 @@ namespace RoadPlay
         {
             net = network;
             BuildBody();
-            // start on the south edge road, in the right lane, facing the centre (north)
             Vector3 south = net.Nodes[net.SouthEntryNode];
             transform.localPosition = south + new Vector3(net.LaneOffset, 0, 0);
             transform.localRotation = Quaternion.LookRotation(Vector3.forward, Vector3.up); // face +Z north
             Traffic.Register(this);
+        }
+
+        public void InitMarker(RoadNetwork network)
+        {
+            net = network;
+            markerControlled = true;
+            BuildBody();
+            transform.localScale = Vector3.one * net.ContentScale;
+            maxSpeed *= net.ContentScale;
+            transform.localPosition = Vector3.zero;
+            transform.localRotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
+            Traffic.Register(this);
+        }
+
+        public void SetMarkerTarget(Vector3 localPos)
+        {
+            localPos.y = 0f;
+            markerTarget = localPos;
+            hasMarkerTarget = true;
         }
 
         void BuildBody()
@@ -52,7 +74,6 @@ namespace RoadPlay
             var glass = Prims.MakeMaterial(new Color(0.4f, 0.6f, 0.85f));
             Prims.Box(transform, "windshield", new Vector3(0, 0.024f, 0.013f), new Vector3(0.024f, 0.012f, 0.006f), glass);
 
-            // bright marker so the player can always spot their own car
             var markMat = Prims.MakeMaterial(new Color(1f, 0.95f, 0.2f), true, 2f);
             Prims.Sphere(transform, "marker", new Vector3(0, 0.04f, 0), 0.012f, markMat);
 
@@ -70,13 +91,14 @@ namespace RoadPlay
         void Update()
         {
             if (net == null) return;
+            if (markerControlled) { MarkerUpdate(); return; }
 
             var pointer = Pointer.current;
             bool pressed = pointer != null && pointer.press.isPressed;
 
             if (!armed)
             {
-                if (!pressed) armed = true; // wait for the placement tap to lift
+                if (!pressed) armed = true; 
                 speed = Mathf.MoveTowards(speed, 0f, accel * 2f * Time.deltaTime);
                 Integrate(0f);
                 return;
@@ -92,6 +114,26 @@ namespace RoadPlay
             float target = pressed ? maxSpeed : 0f;
             speed = Mathf.MoveTowards(speed, target, accel * (pressed ? 1f : 2f) * Time.deltaTime);
             Integrate(steer);
+        }
+
+        void MarkerUpdate()
+        {
+            if (!hasMarkerTarget) return;
+            Vector3 cur = transform.localPosition;
+            Vector3 to = markerTarget - cur; to.y = 0f;
+            float dist = to.magnitude;
+            float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+            if (dist > 1e-5f)
+            {
+                Vector3 dir = to / dist;
+                transform.localPosition = markerTarget;
+                speed = dist / dt;
+                var want = Quaternion.LookRotation(dir, Vector3.up);
+                transform.localRotation = Quaternion.RotateTowards(transform.localRotation, want, 360f * dt);
+            }
+            else speed = 0f;
+
+            var p = transform.localPosition; p.y = 0f; transform.localPosition = p;
         }
 
         void Integrate(float steer)

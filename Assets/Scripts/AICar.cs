@@ -52,6 +52,10 @@ namespace RoadPlay
             id = vehicleId;
 
             BuildBody(color);
+            transform.localScale = Vector3.one * net.ContentScale;
+            maxSpeed *= net.ContentScale;
+            accel *= net.ContentScale;
+
             horn = gameObject.AddComponent<AudioSource>();
             horn.playOnAwake = false;
             horn.spatialBlend = 0f;
@@ -90,7 +94,7 @@ namespace RoadPlay
 
             Vector3 pos = transform.localPosition;
 
-            if (Vector3.Distance(pos, laneExit) < 0.02f)
+            if (Vector3.Distance(pos, laneExit) < 0.4f * net.laneWidth)
                 AdvanceEdge();
 
             // steer toward the next lane point
@@ -114,10 +118,11 @@ namespace RoadPlay
 
             // deadlock breaker: if stopped too long, ignore yield AND crawl forward so two
             // cars can never stay frozen against each other (nudges them apart).
-            if (speed < 0.006f && desired < 0.006f) stuckTimer += Time.deltaTime;
+            float crawl = maxSpeed * 0.06f;
+            if (speed < crawl && desired < crawl) stuckTimer += Time.deltaTime;
             else stuckTimer = 0f;
             if (stuckTimer > 2f) { breakout = 1.5f; stuckTimer = 0f; }
-            if (breakout > 0f && !hardBrake && desired < 0.04f) desired = 0.045f;
+            if (breakout > 0f && !hardBrake && desired < maxSpeed * 0.4f) desired = maxSpeed * 0.45f;
 
             speed = Mathf.MoveTowards(speed, desired, accel * Time.deltaTime);
             transform.localPosition = pos + fwd * (speed * Time.deltaTime);
@@ -154,7 +159,6 @@ namespace RoadPlay
             return cameFrom;
         }
 
-        // brake to keep a gap behind the nearest thing ahead in my lane
         float CarFollowing(Vector3 pos, Vector3 fwd)
         {
             float minGap = float.MaxValue;
@@ -168,14 +172,12 @@ namespace RoadPlay
                 if (ahead <= 0.005f) continue;
                 Vector3 lateral = rel - fwd * ahead;
                 if (lateral.magnitude > net.laneWidth * 1.15f) continue;
-                // only brake for cars going roughly the same way; crossing and oncoming
-                // cars are handled by the intersection rules, not by car-following.
                 if (Vector3.Dot(v.VLocalForward, fwd) < 0.35f) continue;
                 if (ahead < minGap) minGap = ahead;
             }
 
             if (minGap == float.MaxValue) return maxSpeed;
-            const float stopGap = 0.05f, slowGap = 0.17f;
+            float stopGap = net.laneWidth, slowGap = 3.4f * net.laneWidth;
             if (minGap <= stopGap) return 0f;
             if (minGap >= slowGap) return maxSpeed;
             return maxSpeed * ((minGap - stopGap) / (slowGap - stopGap));
@@ -191,30 +193,32 @@ namespace RoadPlay
             if (sig == Signal.Green) return maxSpeed;
 
             float dist = Vector3.Distance(pos, c);
-            if (dist < net.RoadHalf) return maxSpeed; // already entering: commit and clear it
-            float stopDist = net.RoadHalf + 0.03f;
+            if (dist < net.RoadHalf) return maxSpeed;
+            float stopDist = net.RoadHalf + 0.6f * net.laneWidth;
+            float window = 2.4f * net.laneWidth;
             if (dist <= stopDist) return 0f;
-            if (dist < stopDist + 0.12f) return maxSpeed * ((dist - stopDist) / 0.12f);
+            if (dist < stopDist + window) return maxSpeed * ((dist - stopDist) / window);
             return maxSpeed;
         }
 
         float NodeYield(Vector3 pos)
         {
-            if (net.IsSignalized(toNode)) return maxSpeed; // a light controls this node
+            if (net.IsSignalized(toNode)) return maxSpeed;
             float myDist = Vector3.Distance(pos, net.Nodes[toNode]);
-            if (myDist < net.RoadHalf + 0.015f) return maxSpeed; // already entering: commit and clear it
-            if (myDist > 0.12f) return maxSpeed; // only care when close to the junction
+            float near = 2.4f * net.laneWidth;
+            if (myDist < net.RoadHalf + 0.3f * net.laneWidth) return maxSpeed;
+            if (myDist > near) return maxSpeed;
 
+            float tie = 0.1f * net.laneWidth;
             var agents = Traffic.Agents;
             for (int i = 0; i < agents.Count; i++)
             {
                 var v = agents[i];
                 if (ReferenceEquals(v, this)) continue;
                 if (v.TargetNode != toNode) continue;
-                if (v.DistToTarget > 0.12f) continue; // they are not at the junction yet
-                // closer car has priority; ties broken by id so the two never both yield
-                bool theyFirst = v.DistToTarget < myDist - 0.005f ||
-                                 (Mathf.Abs(v.DistToTarget - myDist) <= 0.005f && v.VehicleId < id);
+                if (v.DistToTarget > near) continue;
+                bool theyFirst = v.DistToTarget < myDist - tie ||
+                                 (Mathf.Abs(v.DistToTarget - myDist) <= tie && v.VehicleId < id);
                 if (theyFirst) return 0f;
             }
             return maxSpeed;
