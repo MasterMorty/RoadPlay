@@ -22,15 +22,19 @@ namespace RoadPlay
         readonly List<LightHead> nsHeads = new List<LightHead>();
         readonly List<LightHead> ewHeads = new List<LightHead>();
 
-        // All signalised intersections share one phase (synced "green wave").
         public void Build(RoadNetwork net)
         {
-            float corner = net.RoadHalf + 0.025f;
+            float corner = net.RoadHalf + 0.5f * net.laneWidth;
+            float scale = net.ContentScale;
             foreach (var s in net.SignalNodes)
             {
                 Vector3 c = net.Nodes[s];
-                nsHeads.Add(LightHead.Create(transform, "Light_NS", c + new Vector3(-corner, 0, -corner)));
-                ewHeads.Add(LightHead.Create(transform, "Light_EW", c + new Vector3(corner, 0, -corner)));
+                var ns = LightHead.Create(transform, "Light_NS", c + new Vector3(-corner, 0, -corner));
+                var ew = LightHead.Create(transform, "Light_EW", c + new Vector3(corner, 0, -corner));
+                ns.transform.localScale = Vector3.one * scale;
+                ew.transform.localScale = Vector3.one * scale;
+                nsHeads.Add(ns);
+                ewHeads.Add(ew);
             }
             Apply();
         }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace RoadPlay
@@ -15,7 +16,7 @@ namespace RoadPlay
         RoadNetwork net;
         TrafficLightController signals;
         PlayerCar player;
-        AICar[] ais;
+        List<AICar> ais;
         FeedbackManager fx;
 
         public int violations;
@@ -25,7 +26,7 @@ namespace RoadPlay
         bool crossingJudged;
 
         public void Init(RoadNetwork network, TrafficLightController traffic,
-            PlayerCar p, AICar[] cars, FeedbackManager feedback)
+            PlayerCar p, List<AICar> cars, FeedbackManager feedback)
         {
             net = network;
             signals = traffic;
@@ -36,15 +37,15 @@ namespace RoadPlay
 
         void Update()
         {
-            if (net == null || player == null) return;
+            if (net == null || player == null || !player.gameObject.activeInHierarchy) return;
 
+            float L = net.laneWidth;
             Vector3 pp = player.LocalPos;
             Vector3 c = NearestSignal(pp);
-            float half = net.RoadHalf + 0.02f;
+            float half = net.RoadHalf + 0.4f * L;
             bool inInt = Mathf.Abs(pp.x - c.x) < half && Mathf.Abs(pp.z - c.z) < half;
 
-            // reset judgement once the player has left the intersection again
-            if (!inInt && Vector3.Distance(pp, c) > half + 0.06f)
+            if (!inInt && Vector3.Distance(pp, c) > half + 1.2f * L)
                 crossingJudged = false;
 
             if (inInt && !playerInIntersection && !crossingJudged)
@@ -67,16 +68,15 @@ namespace RoadPlay
                 }
             }
 
-            // near-miss: player too close to any car inside the intersection
             if (inInt && ais != null)
             {
                 foreach (var ai in ais)
                 {
                     if (ai == null) continue;
                     Vector3 ap = ai.LocalPos;
-                    bool aiInInt = Mathf.Abs(ap.x - c.x) < half + 0.03f &&
-                                   Mathf.Abs(ap.z - c.z) < half + 0.03f;
-                    if (aiInInt && Vector3.Distance(pp, ap) < 0.09f)
+                    bool aiInInt = Mathf.Abs(ap.x - c.x) < half + 0.6f * L &&
+                                   Mathf.Abs(ap.z - c.z) < half + 0.6f * L;
+                    if (aiInInt && Vector3.Distance(pp, ap) < 1.8f * L)
                     {
                         ai.ForceBrake(1.6f);
                         ai.Hazard(1.6f);
@@ -105,7 +105,6 @@ namespace RoadPlay
         void ReactCrossTraffic(Vector3 center)
         {
             if (ais == null) return;
-            // the car closest to the intersection centre reacts
             AICar best = null;
             float bestDist = float.MaxValue;
             foreach (var ai in ais)
