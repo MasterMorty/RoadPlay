@@ -1,0 +1,109 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 848409ee8ba454f42a5ddff137688a27, type: 3}
+  m_Name: ReferenceImageLibrary
+  m_EditorClassIdentifier: Unity.XR.ARSubsystems::UnityEngine.XR.ARSubsystems.XRReferenceImageLibrary
+  m_GuidLow: 5351509598080903780
+  m_GuidHigh: 3083626641969658776
+  m_DataStore:
+    m_Storage: []
+  m_Images:
+  - m_SerializedGuid:
+      m_GuidLow: 5002246935151980494
+      m_GuidHigh: 2234520186273394821
+    m_SerializedTextureGuid:
+      m_GuidLow: 12986303163139064588
+      m_GuidHigh: 7182087956646677419
+    m_Size: {x: 0.4, y: 0.3}
+    m_SpecifySize: 1
+    m_Name: map
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5165954998702677738
+      m_GuidHigh: 8854670894241110706
+    m_SerializedTextureGuid:
+      m_GuidLow: 11886309511657338266
+      m_GuidHigh: 2550452080366626520
+    m_Size: {x: 0.06, y: 0.06}
+    m_SpecifySize: 1
+    m_Name: player
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5316226485249521103
+      m_GuidHigh: 13688527933404232346
+    m_SerializedTextureGuid:
+      m_GuidLow: 14175119373103882256
+      m_GuidHigh: 1145565154722012058
+    m_Size: {x: 0.06, y: 0.06}
+    m_SpecifySize: 1
+    m_Name: car1
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5753265573594126753
+      m_GuidHigh: 1209101121251455123
+    m_SerializedTextureGuid:
+      m_GuidLow: 1463224786943270103
+      m_GuidHigh: 8806050139273330362
+    m_Size: {x: 0.06, y: 0.06}
+    m_SpecifySize: 1
+    m_Name: car2
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5017227507705655830
+      m_GuidHigh: 8125718789692139925
+    m_SerializedTextureGuid:
+      m_GuidLow: 7214277659690114514
+      m_GuidHigh: 13625742594066864041
+    m_Size: {x: 0.06, y: 0.06}
+    m_SpecifySize: 1
+    m_Name: car3
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5182220320628078900
+      m_GuidHigh: 8181956120921874864
+    m_SerializedTextureGuid:
+      m_GuidLow: 9568055832232930484
+      m_GuidHigh: 14998068967452735336
+    m_Size: {x: 0.06, y: 0.06}
+    m_SpecifySize: 1
+    m_Name: car4
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 4707808590725258724
+      m_GuidHigh: 14897026801256083885
+    m_SerializedTextureGuid:
+      m_GuidLow: 8419107202926266419
+      m_GuidHigh: 6039117418057874856
+    m_Size: {x: 0.06, y: 0.06}
+    m_SpecifySize: 1
+    m_Name: car6
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5706123562132461605
+      m_GuidHigh: 5893183751439564444
+    m_SerializedTextureGuid:
+      m_GuidLow: 14193636396154769968
+      m_GuidHigh: 13434160111233354713
+    m_Size: {x: 0.06, y: 0.06}
+    m_SpecifySize: 1
+    m_Name: car7
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 4624430387403559862
+      m_GuidHigh: 18107753546020348292
+    m_SerializedTextureGuid:
+      m_GuidLow: 10727814788337222789
+      m_GuidHigh: 8773108702177985307
+    m_Size: {x: 0.06, y: 0.06}
+    m_SpecifySize: 1
+    m_Name: car8
+    m_Texture: {fileID: 0}
