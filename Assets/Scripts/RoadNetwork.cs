@@ -27,7 +27,8 @@ namespace RoadPlay
         public float LaneOffset => laneWidth * 0.5f;
         public float Span => (gridSize - 1) * cell;
 
-        public float ContentScale => laneWidth / 0.05f;
+        public float contentScale = 1f;
+        public float ContentScale => contentScale;
 
         public List<Vector3> Nodes { get; private set; } = new List<Vector3>();
         public List<int> SignalNodes { get; private set; } = new List<int>();

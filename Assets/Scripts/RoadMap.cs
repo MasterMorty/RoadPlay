@@ -19,6 +19,11 @@ namespace RoadPlay
         [Tooltip("Fallback physical width in metres if the tracked image size is unknown.")]
         public float physicalWidthMeters = 0.3f;
 
+        [Tooltip("Street width as a FRACTION of the map width (0 = auto). Drag the slider " +
+                 "in the Map Editor until the lines cover the printed streets - the same " +
+                 "fraction is used on the physical map, so editor == reality.")]
+        public float streetWidthFrac = 0f;
+
         [Tooltip("Name of this image inside the AR Reference Image Library.")]
         public string referenceImageName = "map";
 

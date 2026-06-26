@@ -41,7 +41,8 @@ namespace RoadPlay
 
             float L = net.laneWidth;
             Vector3 pp = player.LocalPos;
-            Vector3 c = NearestSignal(pp);
+            int sNode = NearestSignalNode(pp);
+            Vector3 c = net.Nodes[sNode];
             float half = net.RoadHalf + 0.4f * L;
             bool inInt = Mathf.Abs(pp.x - c.x) < half && Mathf.Abs(pp.z - c.z) < half;
 
@@ -51,10 +52,7 @@ namespace RoadPlay
             if (inInt && !playerInIntersection && !crossingJudged)
             {
                 crossingJudged = true;
-                // which axis is the player crossing on?
-                Vector3 f = player.Forward;
-                bool ns = Mathf.Abs(f.z) >= Mathf.Abs(f.x);
-                Signal sig = ns ? signals.NS : signals.EW;
+                Signal sig = signals.SignalForHeading(sNode, player.Forward);
                 if (sig == Signal.Green)
                 {
                     cleanCrossings++;
@@ -89,15 +87,14 @@ namespace RoadPlay
             playerInIntersection = inInt;
         }
 
-        Vector3 NearestSignal(Vector3 pp)
+        int NearestSignalNode(Vector3 pp)
         {
-            Vector3 best = net.Nodes[net.CenterNode];
+            int best = net.CenterNode;
             float bestDist = float.MaxValue;
             foreach (var s in net.SignalNodes)
             {
-                Vector3 p = net.Nodes[s];
-                float d = Vector3.Distance(pp, p);
-                if (d < bestDist) { bestDist = d; best = p; }
+                float d = Vector3.Distance(pp, net.Nodes[s]);
+                if (d < bestDist) { bestDist = d; best = s; }
             }
             return best;
         }

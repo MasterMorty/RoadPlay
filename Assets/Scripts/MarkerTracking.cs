@@ -127,7 +127,10 @@ namespace RoadPlay
             net.sizeX = sx;
             net.sizeZ = sz;
             net.drawRoads = false;
-            net.laneWidth = Mathf.Max(0.01f, Mathf.Min(sx, sz) * 0.05f);
+            net.laneWidth = roadMap.streetWidthFrac > 0.0001f
+                ? roadMap.streetWidthFrac * sx * 0.5f
+                : Mathf.Max(0.01f, Mathf.Min(sx, sz) * 0.05f);
+            net.contentScale = Mathf.Min(sx, sz) * 0.7f;
             net.Build();
 
             signals = go.AddComponent<TrafficLightController>();
@@ -158,16 +161,54 @@ namespace RoadPlay
 
             Vector3 local = mapRoot.InverseTransformPoint(img.transform.position);
             int from = net.NearestNode(local);
-            var neighbors = net.Neighbors(from);
-            if (neighbors.Count == 0) return;
-            int to = neighbors[Random.Range(0, neighbors.Count)];
+            if (net.Neighbors(from).Count == 0) return;
+            ChooseSpawn(from, out int to, out float startT);
 
             var go = new GameObject("AICar_marker");
             go.transform.SetParent(mapRoot, false);
             var car = go.AddComponent<AICar>();
-            car.Init(net, signals, from, to, CarColors[colorIdx++ % CarColors.Length], ais.Count, 0f);
+            car.Init(net, signals, from, to, CarColors[colorIdx++ % CarColors.Length], ais.Count, startT);
             ais.Add(car);
             markerCars[img.trackableId] = car;
+        }
+
+        void ChooseSpawn(int from, out int to, out float startT)
+        {
+            var neighbors = net.Neighbors(from);
+            float minGap = Mathf.Max(net.laneWidth * 1.2f, net.ContentScale * 0.08f);
+            float minGapSq = minGap * minGap;
+            float[] ts = { 0f, 0.25f, 0.5f, 0.75f };
+
+            int bestTo = neighbors[0];
+            float bestT = 0f, bestClear = -1f;
+            int start = Random.Range(0, neighbors.Count);
+            for (int k = 0; k < neighbors.Count; k++)
+            {
+                int n = neighbors[(start + k) % neighbors.Count];
+                net.Lane(from, n, out var entry, out var exit);
+                foreach (float t in ts)
+                {
+                    Vector3 p = Vector3.Lerp(entry, exit, t);
+                    float clearSq = NearestVehicleSq(p);
+                    if (clearSq >= minGapSq) { to = n; startT = t; return; }
+                    if (clearSq > bestClear) { bestClear = clearSq; bestTo = n; bestT = t; }
+                }
+            }
+            to = bestTo;
+            startT = bestT;
+        }
+
+        static float NearestVehicleSq(Vector3 p)
+        {
+            float best = float.MaxValue;
+            var agents = Traffic.Agents;
+            for (int i = 0; i < agents.Count; i++)
+            {
+                Vector3 d = agents[i].VLocalPos - p; d.y = 0f;
+                float sq = d.sqrMagnitude;
+                if (sq < best) best = sq;
+            }
+            return best;
         }
 
         void EnsureAudioListener()
@@ -240,7 +281,7 @@ namespace RoadPlay
             var hudRect = new Rect(sw * 0.04f, sh * 0.04f, sw * 0.72f, sh * 0.2f);
             Dim(hudRect);
             GUI.Label(hudRect,
-                $"  Followed: {rules.cleanCrossings}\n  Violations: {rules.violations}\n  Cars: {ais.Count}   N-S: {signals.NS}",
+                $"  Followed: {rules.cleanCrossings}\n  Violations: {rules.violations}\n  Cars: {ais.Count}   Lights A/B: {signals.NS}/{signals.EW}",
                 hud);
 
             var hint = new GUIStyle(center) { alignment = TextAnchor.LowerCenter, fontSize = Mathf.RoundToInt(sh * 0.024f) };

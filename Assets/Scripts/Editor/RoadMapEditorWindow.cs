@@ -57,6 +57,16 @@ namespace RoadPlay.EditorTools
                 map.referenceImageName = EditorGUILayout.TextField("Reference image name", map.referenceImageName);
                 map.physicalWidthMeters = EditorGUILayout.FloatField("Phys width (m)", map.physicalWidthMeters);
                 EditorGUILayout.EndHorizontal();
+
+                EditorGUI.BeginChangeCheck();
+                float frac = EditorGUILayout.Slider(
+                    new GUIContent("Street width", "Drag until the lines cover the printed streets. 0 = auto."),
+                    map.streetWidthFrac, 0f, 0.3f);
+                if (EditorGUI.EndChangeCheck()) { map.streetWidthFrac = frac; MarkDirty(); }
+                if (frac > 0.0001f)
+                    EditorGUILayout.LabelField(
+                        $"    ≈ {frac * map.physicalWidthMeters * 100f:0.0} cm wide on a {map.physicalWidthMeters * 100f:0} cm map",
+                        EditorStyles.miniLabel);
                 EditorGUILayout.LabelField(
                     $"Nodes {map.nodes.Count}    Edges {Mathf.Min(map.edgeA.Count, map.edgeB.Count)}    Lights {map.signalNodes.Count}",
                     EditorStyles.miniLabel);
@@ -85,13 +95,14 @@ namespace RoadPlay.EditorTools
             else EditorGUI.DrawRect(rect, new Color(0.18f, 0.2f, 0.18f));
 
             Handles.BeginGUI();
-            Handles.color = new Color(0.95f, 0.85f, 0.2f, 0.9f);
+            float wpx = map.streetWidthFrac > 0.0001f ? Mathf.Max(1f, map.streetWidthFrac * rect.width) : 2f;
+            Handles.color = new Color(0.95f, 0.85f, 0.2f, 0.55f);
             int edges = Mathf.Min(map.edgeA.Count, map.edgeB.Count);
             for (int i = 0; i < edges; i++)
             {
                 int a = map.edgeA[i], b = map.edgeB[i];
                 if (a < map.nodes.Count && b < map.nodes.Count)
-                    Handles.DrawLine(ToScreen(map.nodes[a], rect), ToScreen(map.nodes[b], rect));
+                    Handles.DrawAAPolyLine(wpx, ToScreen(map.nodes[a], rect), ToScreen(map.nodes[b], rect));
             }
             Handles.EndGUI();
 

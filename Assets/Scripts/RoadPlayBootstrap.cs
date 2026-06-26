@@ -206,7 +206,7 @@ namespace RoadPlay
             var hudRect = new Rect(sw * 0.04f, sh * 0.04f, sw * 0.7f, sh * 0.2f);
             DimBox(hudRect);
             GUI.Label(hudRect,
-                $"  Followed: {rules.cleanCrossings}\n  Violations: {rules.violations}\n  N-S light: {signals.NS}",
+                $"  Followed: {rules.cleanCrossings}\n  Violations: {rules.violations}\n  Lights A/B: {signals.NS}/{signals.EW}",
                 hud);
 
             var hint = new GUIStyle(center) { alignment = TextAnchor.LowerCenter, fontSize = Mathf.RoundToInt(sh * 0.024f) };

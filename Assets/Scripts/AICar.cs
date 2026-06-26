@@ -186,12 +186,10 @@ namespace RoadPlay
         float LightSpeed(Vector3 pos)
         {
             if (!net.IsSignalized(toNode)) return maxSpeed;
-            Vector3 c = net.Nodes[toNode];
-            Vector3 approach = c - net.Nodes[fromNode];
-            bool ns = Mathf.Abs(approach.z) >= Mathf.Abs(approach.x);
-            Signal sig = ns ? signals.NS : signals.EW;
+            Signal sig = signals.SignalFor(toNode, fromNode);
             if (sig == Signal.Green) return maxSpeed;
 
+            Vector3 c = net.Nodes[toNode];
             float dist = Vector3.Distance(pos, c);
             if (dist < net.RoadHalf) return maxSpeed;
             float stopDist = net.RoadHalf + 0.6f * net.laneWidth;
